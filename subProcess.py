@@ -12,26 +12,30 @@ import sys
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-#get clusters
-
-
-
-
-
-
-
-
+SHUTDOWN_TAG = 999  # Custom tag for shutdown messages
 packets=[]
 #get data 
 with h5py.File('data.hdf5','r') as f:
     data=  f['data'][:]
-packet_size = -(-len(data) // size)
-if rank>=len(data):
-    packets=None
-else: 
-    packets = data[rank*packet_size:(rank+1)*packet_size]
-print(packets," from ",rank)
 
+# Calculate packet size
+packet_size = (len(data) // size)
+print(len(data) // size)
+
+# Initialize packets to None
+packets = None
+
+# Distribute data among ranks
+if rank < size:
+    # Check if it's the last rank
+    if rank == size - 1:
+        # Assign remaining data to the last rank
+        packets = data[rank * packet_size:]
+    else:
+        # Regular packet assignment
+        packets = data[rank * packet_size:(rank + 1) * packet_size]
+
+print(packets, " from ", rank)
 
 #we need to calculate cluster array and then save that array to new hdf5 file
 #perform emethod
@@ -56,32 +60,37 @@ while True:
         print(clustersArray)
     processed_data = comm.gather(clustersArray, root=0)
 
-    print("processed data is:",processed_data)
+    
     comm.barrier() 
+    print("processed data is:",processed_data)
     if rank == 0:
         #this process has more memory complexity 
         array=[[] for x in range(len(cluster))]
+        
         for x in range(len(processed_data)):
             for y in range(len(processed_data[x])):
                 if len(processed_data[x][y])>0:
-                    array[y].append(processed_data[x][y])
+                    if(len(array[y])!=0):
+                        array[y]+=processed_data[x][y]
+                    else:
+                        array[y]+=(processed_data[x][y])
         print("final array is:",array)
         
         
         #m-method
         previousClusterCenters=cluster.copy()
-                
+        newCluster=[[] for x in range(len(cluster))]
         for w in range(len(array)):
             if len(array[w])!=0:
-                cluster[w]=np.mean(array[w],axis=0)   
-        
+                newCluster[w]=np.mean(array[w],axis=0)   
+        print(newCluster)
         print("the new cluster centers are", cluster)
-        if np.all(previousClusterCenters==cluster):
+        if np.all(previousClusterCenters==newCluster):
             break   
         with h5py.File("cluster.hdf5", "w") as f:
-                f.create_dataset("cluster", data=cluster)
+                f.create_dataset("cluster", data=newCluster)
     comm.barrier()
+print('done')
+comm.Abort()
 
-MPI.Finalize()
-sys.exit(1)
      

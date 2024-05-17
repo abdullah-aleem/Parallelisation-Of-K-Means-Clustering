@@ -13,18 +13,9 @@ class KMeans:
             self.data=np.array(data)
             
             clusterArray=self.paralleleMethod()
+            print('finally completed training')
+            return 
             
-            #m method implemented below, create new cluster centers
-            # previousClusterCenters=self.cluster_centers.copy()
-            
-            # for w in range(len(clusterArray)):
-            #     if len(clusterArray[w])!=0:
-            #         self.cluster_centers[w]=np.mean(clusterArray[w],axis=0)   
-            
-            
-            # if np.all(previousClusterCenters==self.cluster_centers):
-            #     break
-            # print("the new cluster centers are", self.cluster_centers)
             
             
             
@@ -48,8 +39,8 @@ class KMeans:
         #run a script that would parallelize the computation
         num_core = multiprocessing.cpu_count()
         
-        process = subprocess.Popen(f"mpiexec --oversubscribe -n {num_core} python subProcess.py",shell=True)
-        
+        process = subprocess.Popen(f"mpiexec python subProcess.py",shell=True)
+        process.wait()
         print("waitng for the process to finish")
         
         
